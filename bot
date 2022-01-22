@@ -1,0 +1,50 @@
+import telebot
+import requests
+import time
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+driver = webdriver.Chrome('C:/chromedriver/chromedriver.exe')
+from bs4 import BeautifulSoup
+
+token = "5015424661:AAHVOs9jsP8abi9QtK9I7I7TLRsi10SvvdY"  # ыВаш токен
+channel_id = "@news_disc"  # Ваш логин канала https://t.me/news_disc
+bot = telebot.TeleBot(token)
+
+
+@bot.message_handler(content_types=['text'])
+def commands(message):
+    # bot.send_message(channel_id, message.text)
+    if message.text == "Старт":
+        # bot.send_message(channel_id, "Hello")
+        back_post_id = None # при первом запуске back post id = 0
+        while True:
+            post_text = parser(back_post_id)
+            back_post_id = post_text[1] # забираем post id из 2-ого аргумента функции, после ф-строки
+
+            if post_text[0] != None: # если есть, что постить (функция выполняется первым условием if) - постим
+                bot.send_message(channel_id, post_text[0]) # отправляем сообщение в бот
+                time.sleep(1800) # забвение на 1800 сек.
+    else:
+        bot.send_message(message.from_user.id, "Я тебя не понимаю. Напиши Старт")
+
+
+def parser(back_post_id):
+    URL = "https://habr.com/ru/search/?target_type=posts&q=python&order_by=date"
+    driver.get(URL)
+    html = driver.page_source
+    page = requests.get(URL)
+    soup = BeautifulSoup(page.content, "html.parser")
+    soup1 = BeautifulSoup(html, "html.parser")
+    post1 = soup1.find("article",class_ = 'tm-articles-list__item', id = True)
+    post = soup.find("article",class_ = 'tm-articles-list__item', id = True)
+    post_id = post["id"]
+    if post_id != back_post_id:
+        title = post.find("h2", class_="tm-article-snippet__title tm-article-snippet__title_h2").text.strip()
+        url = 'habr.com' + post.find("a", class_ = 'tm-article-snippet__title-link', href=True)["href"]
+        description = post1.find("div", class_ = 'tm-article-body tm-article-snippet__lead').text.strip()
+        return f"{title}\n\n{description}\n\n{url}", post_id
+    else:
+        return None, post_id
+
+
+bot.polling()
